@@ -1,0 +1,30 @@
+[gd_scene load_steps=3 format=3 uid="uid://indigauge_example_main"]
+
+[ext_resource type="Script" path="res://main.gd" id="1_main"]
+[ext_resource type="Script" path="res://addons/indigauge/client.gd" id="2_client"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="IndigaugeClient" type="Node" parent="."]
+script = ExtResource("2_client")
+
+[node name="UI" type="VBoxContainer" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 420.0
+offset_bottom = 200.0
+theme_override_constants/separation = 12
+
+[node name="StatusLabel" type="Label" parent="UI"]
+layout_mode = 2
+text = "Initialising..."
+autowrap_mode = 2
+
+[node name="EventButton" type="Button" parent="UI"]
+layout_mode = 2
+text = "Log Events"
+
+[node name="FeedbackButton" type="Button" parent="UI"]
+layout_mode = 2
+text = "Open Feedback Panel"

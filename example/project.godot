@@ -1,0 +1,15 @@
+; Engine configuration file.
+; Edit via the Godot editor Project > Project Settings.
+
+config_version=5
+
+[application]
+
+config/name="Indigauge Example"
+config/description="Example project demonstrating the Indigauge analytics addon."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/indigauge/plugin.cfg")
