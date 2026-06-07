@@ -1,15 +1,29 @@
+class_name IndigaugeClient
 extends Node
 
 signal session_started(session_token: String)
 signal session_failed(http_code: int, error_message: String)
 signal feedback_sent(feedback_id: String)
 
+const FeedbackPanelScene := preload("res://addons/indigauge/feedback_panel.tscn")
+
+@export var public_key: String = ""
+@export var game_name: String = ""
+@export var game_version: String = ""
+@export var api_base: String = ""
+@export var auto_start_session: bool = false
+@export var feedback_hotkey_enabled: bool = true
+@export var feedback_key: int = KEY_F2
+@export var feedback_canvas_layer: int = 128
+@export_enum("LIVE", "DEV", "DISABLED") var mode: int = IndigaugeTypes.Mode.LIVE
+@export_enum("DEBUG", "INFO", "WARN", "ERROR", "SILENT") var log_level: int = IndigaugeTypes.LogLevel.INFO
+
 var config: IndigaugeTypes.IndigaugeConfig
-var mode: int = IndigaugeTypes.Mode.LIVE
-var log_level: int = IndigaugeTypes.LogLevel.INFO
 
 var _http: HTTPRequest
 var _flush_timer: Timer
+var _feedback_layer: CanvasLayer
+var _feedback_panel: Control
 
 var _session_token: String = ""
 var _session_start_ms: int = 0
@@ -17,26 +31,73 @@ var _queue: Array[IndigaugeTypes.EventPayload] = []
 var _player_id: String = ""
 
 func _ready() -> void:
-	_http = HTTPRequest.new()
-	add_child(_http)
-
-	_flush_timer = Timer.new()
-	_flush_timer.one_shot = false
-	add_child(_flush_timer)
-	_flush_timer.timeout.connect(_tick)
+	_ensure_runtime_nodes()
 
 	IndigaugeCore.set_event_dispatcher(Callable(self, "_dispatch_from_core"))
 
-func setup(public_key: String, game_name: String, game_version: String, api_base: String = "") -> void:
-	config = IndigaugeTypes.IndigaugeConfig.new(game_name, public_key, game_version, api_base)
+	if auto_start_session:
+		setup()
+		start_session()
+
+func _ensure_runtime_nodes() -> void:
+	if not is_in_group("indigauge_clients"):
+		add_to_group("indigauge_clients")
+	set_process_input(true)
+
+	if _http == null:
+		_http = HTTPRequest.new()
+		add_child(_http)
+
+	if _flush_timer == null:
+		_flush_timer = Timer.new()
+		_flush_timer.one_shot = false
+		add_child(_flush_timer)
+		_flush_timer.timeout.connect(_tick)
+
+func _input(event: InputEvent) -> void:
+	if not feedback_hotkey_enabled:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == feedback_key:
+		toggle_feedback_panel()
+		get_viewport().set_input_as_handled()
+
+func setup(_public_key: String = "", _game_name: String = "", _game_version: String = "", _api_base: String = "", start_now: bool = false) -> void:
+	_ensure_runtime_nodes()
+
+	if _public_key != "":
+		public_key = _public_key
+	if _game_name != "":
+		game_name = _game_name
+	if _game_version != "":
+		game_version = _game_version
+	if _api_base != "":
+		api_base = _api_base
+
+	var resolved_game_name := _resolve_game_name()
+	var resolved_game_version := _resolve_game_version()
+
+	config = IndigaugeTypes.IndigaugeConfig.new(resolved_game_name, public_key, resolved_game_version, api_base)
 	_flush_timer.wait_time = config.flush_interval_sec
 	_flush_timer.start()
 	_player_id = _load_or_create_player_id()
+
+	if start_now:
+		start_session()
+
+func start(_public_key: String = "", _game_name: String = "", _game_version: String = "", _api_base: String = "") -> void:
+	setup(_public_key, _game_name, _game_version, _api_base)
+	start_session()
+
+func configure_and_start(_public_key: String = "", _game_name: String = "", _game_version: String = "", _api_base: String = "") -> void:
+	start(_public_key, _game_name, _game_version, _api_base)
 
 func start_session() -> void:
 	if mode == IndigaugeTypes.Mode.DISABLED:
 		_log_info("Indigauge disabled; skipping session start.")
 		return
+
+	if config == null:
+		setup()
 
 	_session_start_ms = Time.get_ticks_msec()
 
@@ -98,6 +159,43 @@ func _on_start_session_completed(_result: int, code: int, _headers: PackedString
 	_session_token = resp.session_token
 	emit_signal("session_started", _session_token)
 	_log_info("Session started.")
+
+# ---- Feedback panel ----
+func show_feedback_panel(parent: Node = null) -> Control:
+	if is_instance_valid(_feedback_panel):
+		_feedback_panel.grab_focus()
+		return _feedback_panel
+
+	var panel: Control = FeedbackPanelScene.instantiate()
+	panel.set("client", self)
+	_feedback_panel = panel
+	_feedback_panel.tree_exited.connect(func() -> void:
+		_feedback_panel = null
+	)
+
+	var target_parent := parent if parent != null else _get_feedback_layer()
+	target_parent.add_child(panel)
+	return panel
+
+func hide_feedback_panel() -> void:
+	if is_instance_valid(_feedback_panel):
+		_feedback_panel.queue_free()
+	_feedback_panel = null
+
+func toggle_feedback_panel(parent: Node = null) -> void:
+	if is_instance_valid(_feedback_panel):
+		hide_feedback_panel()
+	else:
+		show_feedback_panel(parent)
+
+func _get_feedback_layer() -> CanvasLayer:
+	if is_instance_valid(_feedback_layer):
+		return _feedback_layer
+	_feedback_layer = CanvasLayer.new()
+	_feedback_layer.name = "IndigaugeFeedbackLayer"
+	_feedback_layer.layer = feedback_canvas_layer
+	add_child(_feedback_layer)
+	return _feedback_layer
 
 # ---- Event logging helpers ----
 func ig_trace(event_type: String, metadata: Dictionary = {}) -> void:
@@ -188,6 +286,7 @@ func send_heartbeat() -> void:
 # ---- Feedback (submit + optional screenshot upload) ----
 func submit_feedback(message: String, category: String, question: String = "", include_screenshot: bool = false) -> void:
 	if _session_token == "":
+		_log_warn("Cannot submit feedback before a session has started.")
 		return
 
 	var msg := message.strip_edges()
@@ -205,6 +304,7 @@ func submit_feedback(message: String, category: String, question: String = "", i
 	match mode:
 		IndigaugeTypes.Mode.DEV:
 			_log_info("DEVMODE: feedback: %s" % JSON.stringify(p.to_json()))
+			emit_signal("feedback_sent", "dev-%s" % _new_id())
 			return
 		IndigaugeTypes.Mode.LIVE:
 			var url := config.api_url("feedback")
@@ -276,6 +376,20 @@ func _load_or_create_player_id() -> String:
 	var wf := FileAccess.open(path, FileAccess.WRITE)
 	wf.store_string(new_id)
 	return new_id
+
+func _resolve_game_name() -> String:
+	var configured := game_name.strip_edges()
+	if configured != "":
+		return configured
+	var project_name := str(ProjectSettings.get_setting("application/config/name", "")).strip_edges()
+	return project_name if project_name != "" else "GodotGame"
+
+func _resolve_game_version() -> String:
+	var configured := game_version.strip_edges()
+	if configured != "":
+		return configured
+	var project_version := str(ProjectSettings.get_setting("application/config/version", "")).strip_edges()
+	return project_version if project_version != "" else "1.0.0"
 
 func _log_info(s: String) -> void:
 	if log_level <= IndigaugeTypes.LogLevel.INFO:
