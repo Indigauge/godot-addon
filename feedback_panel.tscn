@@ -1,0 +1,179 @@
+[gd_scene load_steps=2 format=3 uid="uid://indigauge_feedback_panel"]
+
+[ext_resource type="Script" path="res://addons/indigauge/feedback_panel.gd" id="1_1"]
+
+[node name="FeedbackPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
+mouse_filter = 1
+script = ExtResource("1_1")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
+color = Color(0, 0, 0, 0.55)
+mouse_filter = 1
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="PanelContainer" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(560, 520)
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Center/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="Header" type="VBoxContainer" parent="Center/PanelContainer/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="Center/PanelContainer/VBox/Header"]
+layout_mode = 2
+text = "Send feedback"
+horizontal_alignment = 0
+autowrap_mode = 2
+
+[node name="Subtitle" type="Label" parent="Center/PanelContainer/VBox/Header"]
+layout_mode = 2
+text = "Tell us what happened. You can include a screenshot."
+autowrap_mode = 2
+modulate = Color(1, 1, 1, 0.85)
+
+[node name="Form" type="VBoxContainer" parent="Center/PanelContainer/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="CategoryRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="CategoryLabel" type="Label" parent="Center/PanelContainer/VBox/Form/CategoryRow"]
+layout_mode = 2
+text = "Category"
+autowrap_mode = 2
+
+[node name="Category" type="OptionButton" parent="Center/PanelContainer/VBox/Form/CategoryRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+item_count = 6
+selected = 0
+popup/item_0/text = "Bug"
+popup/item_1/text = "Suggestion"
+popup/item_2/text = "Balance"
+popup/item_3/text = "Performance"
+popup/item_4/text = "UX"
+popup/item_5/text = "Other"
+
+[node name="QuestionRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="QuestionLabel" type="Label" parent="Center/PanelContainer/VBox/Form/QuestionRow"]
+layout_mode = 2
+text = "Question (optional)"
+autowrap_mode = 2
+
+[node name="Question" type="LineEdit" parent="Center/PanelContainer/VBox/Form/QuestionRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "What were you trying to do?"
+clear_button_enabled = true
+
+[node name="MessageRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="MessageLabel" type="Label" parent="Center/PanelContainer/VBox/Form/MessageRow"]
+layout_mode = 2
+text = "Message"
+autowrap_mode = 2
+
+[node name="Message" type="TextEdit" parent="Center/PanelContainer/VBox/Form/MessageRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 220)
+placeholder_text = "Describe what you experienced..."
+wrap_mode = 1
+
+[node name="OptionsRow" type="HBoxContainer" parent="Center/PanelContainer/VBox/Form"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Screenshot" type="CheckBox" parent="Center/PanelContainer/VBox/Form/OptionsRow"]
+layout_mode = 2
+text = "Include screenshot"
+button_pressed = true
+
+[node name="Spacer" type="Control" parent="Center/PanelContainer/VBox/Form/OptionsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Hint" type="Label" parent="Center/PanelContainer/VBox/Form/OptionsRow"]
+layout_mode = 2
+text = "F2 to toggle"
+modulate = Color(1, 1, 1, 0.65)
+
+[node name="Footer" type="VBoxContainer" parent="Center/PanelContainer/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Error" type="Label" parent="Center/PanelContainer/VBox/Footer"]
+layout_mode = 2
+text = ""
+visible = false
+autowrap_mode = 2
+modulate = Color(1, 0.45, 0.45, 1)
+
+[node name="Buttons" type="HBoxContainer" parent="Center/PanelContainer/VBox/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="Cancel" type="Button" parent="Center/PanelContainer/VBox/Footer/Buttons"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="Spacer" type="Control" parent="Center/PanelContainer/VBox/Footer/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Submit" type="Button" parent="Center/PanelContainer/VBox/Footer/Buttons"]
+layout_mode = 2
+text = "Send"
+size_flags_horizontal = 0
