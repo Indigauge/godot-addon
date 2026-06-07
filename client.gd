@@ -253,7 +253,7 @@ func _upload_feedback_screenshot(feedback_id: String) -> void:
 		"Content-Type: image/png",
 		"X-Indigauge-Key: %s" % _session_token,
 	]
-	_http.request(url, headers, HTTPClient.METHOD_POST, png)
+	_http.request_raw(url, headers, HTTPClient.METHOD_POST, png)
 
 # ---- helpers ----
 func _meta_or_null(d: Dictionary) -> Variant:
