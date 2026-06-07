@@ -1,4 +1,3 @@
-class_name IndigaugeClient
 extends Node
 
 signal session_started(session_token: String)
@@ -54,7 +53,7 @@ func start_session() -> void:
 
 	var p := IndigaugeTypes.StartSessionPayload.new()
 	p.client_version = config.game_version
-	p.sdk_version = "godot-gdscript"
+	p.sdk_version = "godot-gdscript:0.1.0"
 	p.player_id = _player_id
 	p.platform = OS.get_name()
 	p.os = OS.get_name()
