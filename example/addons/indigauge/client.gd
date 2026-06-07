@@ -15,7 +15,7 @@ const FeedbackPanelScene := preload("res://addons/indigauge/feedback_panel.tscn"
 @export var feedback_hotkey_enabled: bool = true
 @export var feedback_key: int = KEY_F2
 @export var feedback_canvas_layer: int = 128
-@export_enum("LIVE", "DEV", "DISABLED") var mode: int = IndigaugeTypes.Mode.LIVE
+@export_enum("LIVE", "DEV", "DISABLED", "AUTO") var mode: int = IndigaugeTypes.Mode.AUTO
 @export_enum("DEBUG", "INFO", "WARN", "ERROR", "SILENT") var log_level: int = IndigaugeTypes.LogLevel.INFO
 
 var config: IndigaugeTypes.IndigaugeConfig
@@ -92,7 +92,9 @@ func configure_and_start(_public_key: String = "", _game_name: String = "", _gam
 	start(_public_key, _game_name, _game_version, _api_base)
 
 func start_session() -> void:
-	if mode == IndigaugeTypes.Mode.DISABLED:
+	var active_mode := effective_mode()
+
+	if active_mode == IndigaugeTypes.Mode.DISABLED:
 		_log_info("Indigauge disabled; skipping session start.")
 		return
 
@@ -101,13 +103,13 @@ func start_session() -> void:
 
 	_session_start_ms = Time.get_ticks_msec()
 
-	if mode == IndigaugeTypes.Mode.DEV:
+	if active_mode == IndigaugeTypes.Mode.DEV:
 		_session_token = "dev"
 		emit_signal("session_started", _session_token)
 		_log_info("DEVMODE: session started.")
 		return
 
-	if mode == IndigaugeTypes.Mode.LIVE and (config == null or not config.has_public_key()):
+	if active_mode == IndigaugeTypes.Mode.LIVE and (config == null or not config.has_public_key()):
 		_log_warn("No public key set in LIVE mode; cannot start session.")
 		emit_signal("session_failed", 0, "missing_public_key")
 		return
@@ -251,7 +253,7 @@ func flush_events() -> int:
 	var payload := IndigaugeTypes.BatchEventPayload.new()
 	payload.events = batch_events
 
-	match mode:
+	match effective_mode():
 		IndigaugeTypes.Mode.DEV:
 			_log_info("DEVMODE: sending event batch (%d)" % count)
 			return count
@@ -270,7 +272,7 @@ func send_heartbeat() -> void:
 	if _session_token == "":
 		return
 
-	match mode:
+	match effective_mode():
 		IndigaugeTypes.Mode.DEV:
 			_log_info("DEVMODE: heartbeat")
 		IndigaugeTypes.Mode.LIVE:
@@ -301,7 +303,7 @@ func submit_feedback(message: String, category: String, question: String = "", i
 	p.elapsed_ms = elapsed
 	p.question = question
 
-	match mode:
+	match effective_mode():
 		IndigaugeTypes.Mode.DEV:
 			_log_info("DEVMODE: feedback: %s" % JSON.stringify(p.to_json()))
 			emit_signal("feedback_sent", "dev-%s" % _new_id())
@@ -360,6 +362,13 @@ func _meta_or_null(d: Dictionary) -> Variant:
 
 func _ctx() -> Dictionary:
 	return {}
+
+func effective_mode() -> int:
+	if mode != IndigaugeTypes.Mode.AUTO:
+		return mode
+	if OS.has_feature("editor") or OS.has_feature("debug"):
+		return IndigaugeTypes.Mode.DEV
+	return IndigaugeTypes.Mode.LIVE
 
 func _new_id() -> String:
 	# good-enough idempotency key for client-side batching

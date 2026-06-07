@@ -1,6 +1,6 @@
 class_name IndigaugeTypes
 
-enum Mode { LIVE, DEV, DISABLED }
+enum Mode { LIVE, DEV, DISABLED, AUTO }
 enum LogLevel { DEBUG, INFO, WARN, ERROR, SILENT }
 
 # ---- API response models ----

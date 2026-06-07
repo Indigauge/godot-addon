@@ -42,11 +42,9 @@ The shortest setup is one call from any script with a reference to the `Indigaug
 @onready var _client: IndigaugeClient = $IndigaugeClient
 
 func _ready() -> void:
-    # Use Mode.DEV during development - no API key needed, all output goes to the console.
-    _client.mode = IndigaugeTypes.Mode.DEV
-
-    # Switch to Mode.LIVE with your real public key when you are ready to ship.
-    # _client.mode = IndigaugeTypes.Mode.LIVE
+    # Mode.AUTO is the default:
+    # - DEV when running from the Godot editor or a debug export
+    # - LIVE in release exports
 
     _client.session_started.connect(_on_session_started)
     _client.session_failed.connect(_on_session_failed)
@@ -98,7 +96,7 @@ Set these properties on `IndigaugeClient` before calling `start(...)` or `start_
 
 | Property | Type | Default | Description |
 |---|---|---|---|
-| `mode` | `IndigaugeTypes.Mode` | `LIVE` | `LIVE`, `DEV` (logs to console only), or `DISABLED` |
+| `mode` | `IndigaugeTypes.Mode` | `AUTO` | `AUTO` resolves to `DEV` in the editor/debug exports and `LIVE` in release exports; can also be forced to `LIVE`, `DEV`, or `DISABLED` |
 | `log_level` | `IndigaugeTypes.LogLevel` | `INFO` | `DEBUG`, `INFO`, `WARN`, `ERROR`, or `SILENT` |
 | `auto_start_session` | `bool` | `false` | Starts a session automatically from exported settings when the node enters the scene |
 | `feedback_hotkey_enabled` | `bool` | `true` | Enables the feedback panel hotkey |
@@ -130,18 +128,17 @@ The `IndigaugeConfig` object (available as `client.config` after `setup()`) expo
 An immediately runnable example project lives in the `example/` directory.
 
 1. Open Godot and choose **Import** → navigate to `example/project.godot`.
-2. Press **F5** (Run) - no API key is needed as it runs in `DEV` mode.
+2. Press **F5** (Run) - no API key is needed because `AUTO` resolves to `DEV` in the editor.
 3. Click **Log Events** to see events printed to the Output panel.
 4. Press **F2** or click **Open Feedback Panel** to try the built-in feedback UI.
 
-To test with a real Indigauge account, open `example/main.gd`, change:
+To send data from a release export, open `example/main.gd` and use your real public key:
 
 ```gdscript
-_client.mode = IndigaugeTypes.Mode.DEV
-_client.start("YOUR_PUBLIC_KEY", "ExampleGame", "1.0.0")
+_client.start("your-real-public-key", "ExampleGame", "1.0.0")
 ```
 
-to:
+To send data while running from the editor, force live mode before starting:
 
 ```gdscript
 _client.mode = IndigaugeTypes.Mode.LIVE

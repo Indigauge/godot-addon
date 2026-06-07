@@ -3,8 +3,7 @@ extends Node
 # ---------------------------------------------------------------------------
 # Indigauge Example
 #
-# Runs in DEV mode by default so no API key is needed.
-# Switch to Mode.LIVE and call start() with your real key to send real data.
+# Mode.AUTO runs as DEV from the Godot editor and LIVE in release exports.
 # ---------------------------------------------------------------------------
 
 @onready var _status_label: Label = $UI/StatusLabel
@@ -17,7 +16,6 @@ func _ready() -> void:
 	_client.session_failed.connect(_on_session_failed)
 	_client.feedback_sent.connect(_on_feedback_sent)
 
-	_client.mode = IndigaugeTypes.Mode.DEV
 	_client.start("YOUR_PUBLIC_KEY", "ExampleGame", "1.0.0")
 
 	_event_button.pressed.connect(_on_event_button_pressed)
