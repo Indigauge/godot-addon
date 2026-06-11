@@ -3,6 +3,8 @@ extends Node
 
 signal session_started(session_token: String)
 signal session_failed(http_code: int, error_message: String)
+signal session_metadata_updated
+signal session_metadata_failed(http_code: int, error_message: String)
 signal feedback_sent(feedback_id: String)
 
 const FeedbackPanelScene := preload("res://addons/indigauge/feedback_panel.tscn")
@@ -27,6 +29,10 @@ var _feedback_panel: Control
 
 var _session_token: String = ""
 var _session_start_ms: int = 0
+var _session_metadata: Dictionary = {}
+var _pending_session_metadata: Dictionary = {}
+var _session_metadata_dirty: bool = false
+var _session_metadata_in_flight: bool = false
 var _queue: Array[IndigaugeTypes.EventPayload] = []
 var _player_id: String = ""
 
@@ -102,6 +108,10 @@ func start_session() -> void:
 		setup()
 
 	_session_start_ms = Time.get_ticks_msec()
+	_session_metadata = {}
+	_pending_session_metadata = {}
+	_session_metadata_dirty = false
+	_session_metadata_in_flight = false
 
 	if active_mode == IndigaugeTypes.Mode.DEV:
 		_session_token = "dev"
@@ -237,8 +247,11 @@ func _dispatch_from_core(level: String, event_type: String, metadata: Variant, _
 # ---- Periodic tick: flush + heartbeat ----
 func _tick() -> void:
 	var sent := flush_events()
-	if sent == 0:
-		send_heartbeat()
+	if sent > 0:
+		return
+	if flush_session_metadata():
+		return
+	send_heartbeat()
 
 func flush_events() -> int:
 	if _session_token == "" or _queue.is_empty():
@@ -284,6 +297,74 @@ func send_heartbeat() -> void:
 			_http.request(url, headers, HTTPClient.METHOD_POST, "{}")
 		_:
 			pass
+
+func update_session_metadata(metadata: Dictionary) -> bool:
+	if _session_token == "":
+		_log_warn("Cannot update session metadata before a session has started.")
+		return false
+
+	var merged_metadata := _merge_session_metadata(metadata)
+	if merged_metadata == _session_metadata:
+		return false
+
+	_session_metadata = merged_metadata
+	_session_metadata_dirty = true
+	return true
+
+func flush_session_metadata() -> bool:
+	if _session_token == "" or not _session_metadata_dirty or _session_metadata_in_flight:
+		return false
+
+	match effective_mode():
+		IndigaugeTypes.Mode.DEV:
+			_log_info("DEVMODE: update session metadata: %s" % JSON.stringify(_session_metadata))
+			_session_metadata_dirty = false
+			emit_signal("session_metadata_updated")
+			return true
+		IndigaugeTypes.Mode.LIVE:
+			var url := config.api_url("sessions")
+			var headers := [
+				"Content-Type: application/json",
+				"X-Indigauge-Key: %s" % _session_token,
+			]
+
+			var metadata_snapshot := _session_metadata.duplicate(true)
+			var request_error := _http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(metadata_snapshot))
+			if request_error != OK:
+				var message := "failed_to_start_metadata_request:%d" % request_error
+				_log_error("Failed to start session metadata request: %d" % request_error)
+				emit_signal("session_metadata_failed", 0, message)
+				return true
+
+			_pending_session_metadata = metadata_snapshot
+			_session_metadata_in_flight = true
+			_http.request_completed.connect(_on_session_metadata_completed, CONNECT_ONE_SHOT)
+			return true
+		_:
+			return false
+
+func _on_session_metadata_completed(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	_session_metadata_in_flight = false
+
+	if code >= 200 and code < 300:
+		if _session_metadata == _pending_session_metadata:
+			_session_metadata_dirty = false
+		_pending_session_metadata = {}
+		_log_info("Session metadata updated.")
+		emit_signal("session_metadata_updated")
+		return
+
+	_pending_session_metadata = {}
+	var text := body.get_string_from_utf8()
+	var message := text
+	var parsed := JSON.parse_string(text)
+	var env := IndigaugeTypes.parse_api_response(parsed)
+	if not env.ok:
+		var err: IndigaugeTypes.ErrorBody = env.error
+		message = err.message
+
+	_log_error("Failed to update session metadata (HTTP %d): %s" % [code, message])
+	emit_signal("session_metadata_failed", code, message)
 
 # ---- Feedback (submit + optional screenshot upload) ----
 func submit_feedback(message: String, category: String, question: String = "", include_screenshot: bool = false) -> void:
@@ -359,6 +440,20 @@ func _upload_feedback_screenshot(feedback_id: String) -> void:
 # ---- helpers ----
 func _meta_or_null(d: Dictionary) -> Variant:
 	return null if d.is_empty() else d
+
+func _merge_session_metadata(metadata: Dictionary) -> Dictionary:
+	var merged := _session_metadata.duplicate(true)
+	_deep_merge_dictionary(merged, metadata)
+	return merged
+
+func _deep_merge_dictionary(target: Dictionary, patch: Dictionary) -> void:
+	for key in patch.keys():
+		var patch_value: Variant = patch[key]
+		if target.has(key) and typeof(target[key]) == TYPE_DICTIONARY and typeof(patch_value) == TYPE_DICTIONARY:
+			var target_child: Dictionary = target[key]
+			_deep_merge_dictionary(target_child, patch_value)
+		else:
+			target[key] = patch_value
 
 func _ctx() -> Dictionary:
 	return {}

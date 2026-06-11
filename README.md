@@ -132,6 +132,24 @@ Recommended event naming:
 
 ---
 
+## Session Metadata
+
+Session metadata stores structured state on the active gameplay session. Use it for values that describe the session as a whole and may change over time, such as difficulty, level, party size, or build channel.
+
+```gdscript
+_indigauge.update_session_metadata({
+	"difficulty": "hard",
+	"level": "forest_01",
+	"partySize": 2
+})
+```
+
+The metadata object is sent as JSON to the ingest API on the next flush tick after it changes. In `DEV` mode, changed metadata is logged on that same schedule instead of being sent.
+
+Calls are merged with the previous session metadata state. New fields are added, existing fields are replaced, and fields omitted from an update are kept. Nested dictionaries are merged the same way.
+
+---
+
 ## Player Feedback
 
 The addon includes a ready-to-use feedback panel. By default, players can press **F2** to open or close it.
@@ -211,6 +229,12 @@ _indigauge.ig_warn(event_type, metadata = {})
 _indigauge.ig_error(event_type, metadata = {})
 ```
 
+### Session Metadata
+
+```gdscript
+_indigauge.update_session_metadata(metadata)
+```
+
 ### Feedback
 
 ```gdscript
@@ -226,6 +250,8 @@ _indigauge.submit_feedback(message, category, question = "", include_screenshot 
 |---|---|---|
 | `session_started` | `session_token: String` | Emitted when a session is ready |
 | `session_failed` | `http_code: int, error_message: String` | Emitted when session startup fails |
+| `session_metadata_updated` | none | Emitted after changed session metadata is flushed, or logged in `DEV` mode |
+| `session_metadata_failed` | `http_code: int, error_message: String` | Emitted when a metadata update fails |
 | `feedback_sent` | `feedback_id: String` | Emitted after feedback is accepted, or immediately in `DEV` mode |
 
 ---

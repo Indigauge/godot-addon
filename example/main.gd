@@ -23,6 +23,10 @@ func _ready() -> void:
 
 func _on_session_started(token: String) -> void:
 	_status_label.text = "Session started (token: %s)" % token
+	_client.update_session_metadata({
+		"exampleScene": "main",
+		"mode": "demo"
+	})
 
 func _on_session_failed(_code: int, message: String) -> void:
 	_status_label.text = "Session failed: %s" % message
