@@ -18,8 +18,8 @@ static func validate_event_type(s: String) -> Dictionary:
 		return {"ok": false, "error": "Invalid event type: '.' cannot be the first or last character"}
 	for ch in s:
 		if ch == ".": continue
-		var o := ch.ord()
-		var is_letter := (o >= "A".ord() and o <= "Z".ord()) or (o >= "a".ord() and o <= "z".ord())
+		var o := ch.unicode_at(0)
+		var is_letter := (o >= 65 and o <= 90) or (o >= 97 and o <= 122)
 		if not is_letter:
 			return {"ok": false, "error": "Invalid event type: only letters and a single '.' are allowed"}
 	return {"ok": true}
