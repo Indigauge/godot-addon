@@ -285,6 +285,13 @@ func send_heartbeat() -> void:
 		_:
 			pass
 
+func _feedback_category(requested_category: String) -> String:
+	var valid_categories := ["bugs", "general", "ui", "performance", "gameplay", "controls", "audio", "balance", "graphics", "visual", "art", "other"]
+	var cat := requested_category.strip_edges().to_lower()
+	if cat == "" or not valid_categories.has(cat):
+		return "other"
+	return cat
+
 # ---- Feedback (submit + optional screenshot upload) ----
 func submit_feedback(message: String, category: String, question: String = "", include_screenshot: bool = false) -> void:
 	if _session_token == "":
@@ -299,7 +306,7 @@ func submit_feedback(message: String, category: String, question: String = "", i
 	var elapsed := max(0, Time.get_ticks_msec() - _session_start_ms)
 	var p := IndigaugeTypes.FeedbackPayload.new()
 	p.message = msg
-	p.category = category.to_lower()
+	p.category = _feedback_category(category)
 	p.elapsed_ms = elapsed
 	p.question = question
 
@@ -310,51 +317,93 @@ func submit_feedback(message: String, category: String, question: String = "", i
 			return
 		IndigaugeTypes.Mode.LIVE:
 			var url := config.api_url("feedback")
-			var headers := [
-				"Content-Type: application/json",
-				"X-Indigauge-Key: %s" % _session_token,
-			]
-			_http.request_completed.connect(func(_r:int, code:int, _h:PackedStringArray, body:PackedByteArray) -> void:
-				if code < 200 or code >= 300:
-					_log_error("Failed to send feedback (HTTP %d)" % code)
-					return
-				var parsed := JSON.parse_string(body.get_string_from_utf8())
-				var env := IndigaugeTypes.parse_api_response(parsed)
-				if not env.ok:
-					var err: IndigaugeTypes.ErrorBody = env.error
-					_log_error("Feedback error: %s (%s)" % [err.message, err.code])
+			_http.request_completed.connect(_on_feedback_completed, CONNECT_ONE_SHOT)
+			var request_error := OK
+			var headers := []
+
+			if include_screenshot:
+				var png := _capture_screenshot_png()
+				if png.is_empty():
+					_log_warn("Feedback screenshot was requested, but no screenshot could be captured.")
+					_http.request_completed.disconnect(_on_feedback_completed)
 					return
 
-				var idr := IndigaugeTypes.IdResponse.from_dict(env.data)
-				if idr.id == "":
-					_log_warn("Feedback response missing id.")
-					return
+				var boundary := _multipart_boundary()
+				headers = [
+					"Content-Type: multipart/form-data; boundary=%s" % boundary,
+					"X-Indigauge-Key: %s" % _session_token,
+				]
+				var body := _build_feedback_multipart_body(p, png, boundary)
+				request_error = _http.request_raw(url, headers, HTTPClient.METHOD_POST, body)
+			else:
+				headers = [
+					"Content-Type: application/json",
+					"X-Indigauge-Key: %s" % _session_token,
+				]
+				request_error = _http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(p.to_json()))
 
-				emit_signal("feedback_sent", idr.id)
-
-				if include_screenshot:
-					_upload_feedback_screenshot(idr.id)
-			, CONNECT_ONE_SHOT)
-			_http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(p.to_json()))
+			if request_error != OK:
+				if _http.request_completed.is_connected(_on_feedback_completed):
+					_http.request_completed.disconnect(_on_feedback_completed)
+				_log_error("Failed to start feedback request (error %d)" % request_error)
 		_:
 			pass
 
-func _upload_feedback_screenshot(feedback_id: String) -> void:
+func _on_feedback_completed(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	if code < 200 or code >= 300:
+		_log_error("Failed to send feedback (HTTP %d): %s" % [code, body.get_string_from_utf8()])
+		return
+
+	var parsed := JSON.parse_string(body.get_string_from_utf8())
+	var env := IndigaugeTypes.parse_api_response(parsed)
+	if not env.ok:
+		var err: IndigaugeTypes.ErrorBody = env.error
+		_log_error("Feedback error: %s (%s)" % [err.message, err.code])
+		return
+
+	var idr := IndigaugeTypes.IdResponse.from_dict(env.data)
+	if idr.id == "":
+		_log_warn("Feedback response missing id.")
+		return
+
+	emit_signal("feedback_sent", idr.id)
+
+func _capture_screenshot_png() -> PackedByteArray:
 	var img := get_viewport().get_texture().get_image()
 	if img == null:
 		_log_warn("No screenshot image available.")
-		return
+		return PackedByteArray()
 	var png: PackedByteArray = img.save_png_to_buffer()
 	if png.is_empty():
 		_log_warn("Failed to encode screenshot PNG.")
-		return
+	return png
 
-	var url := config.api_url("feedback/%s/screenshot" % feedback_id)
-	var headers := [
-		"Content-Type: image/png",
-		"X-Indigauge-Key: %s" % _session_token,
-	]
-	_http.request_raw(url, headers, HTTPClient.METHOD_POST, png)
+func _multipart_boundary() -> String:
+	return "----IndigaugeGodot%s" % _new_id().replace("-", "")
+
+func _build_feedback_multipart_body(payload, png: PackedByteArray, boundary: String) -> PackedByteArray:
+	var body := PackedByteArray()
+	_append_multipart_text(body, boundary, "message", payload.message)
+	_append_multipart_text(body, boundary, "elapsedMs", str(payload.elapsed_ms))
+	_append_multipart_text(body, boundary, "category", payload.category)
+	if payload.question != "":
+		_append_multipart_text(body, boundary, "question", payload.question)
+	_append_multipart_file(body, boundary, "screenshot", "screenshot.png", "image/png", png)
+	body.append_array(("--%s--\r\n" % boundary).to_utf8_buffer())
+	return body
+
+func _append_multipart_text(body: PackedByteArray, boundary: String, field_name: String, value: String) -> void:
+	body.append_array(("--%s\r\n" % boundary).to_utf8_buffer())
+	body.append_array(("Content-Disposition: form-data; name=\"%s\"\r\n\r\n" % field_name).to_utf8_buffer())
+	body.append_array(value.to_utf8_buffer())
+	body.append_array("\r\n".to_utf8_buffer())
+
+func _append_multipart_file(body: PackedByteArray, boundary: String, field_name: String, filename: String, content_type: String, file_bytes: PackedByteArray) -> void:
+	body.append_array(("--%s\r\n" % boundary).to_utf8_buffer())
+	body.append_array(("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n" % [field_name, filename]).to_utf8_buffer())
+	body.append_array(("Content-Type: %s\r\n\r\n" % content_type).to_utf8_buffer())
+	body.append_array(file_bytes)
+	body.append_array("\r\n".to_utf8_buffer())
 
 # ---- helpers ----
 func _meta_or_null(d: Dictionary) -> Variant:
