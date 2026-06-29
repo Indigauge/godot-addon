@@ -87,11 +87,11 @@ layout_mode = 2
 size_flags_horizontal = 3
 item_count = 6
 selected = 0
-popup/item_0/text = "Bug"
-popup/item_1/text = "Suggestion"
+popup/item_0/text = "Bugs"
+popup/item_1/text = "General"
 popup/item_2/text = "Balance"
 popup/item_3/text = "Performance"
-popup/item_4/text = "UX"
+popup/item_4/text = "UI"
 popup/item_5/text = "Other"
 
 [node name="QuestionRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form"]
