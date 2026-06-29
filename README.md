@@ -237,8 +237,9 @@ An importable Godot example lives in `godot-addon/example/`.
 1. Open Godot.
 2. Choose **Import** and select `godot-addon/example/project.godot`.
 3. Press **F5**.
-4. Click **Log Events** to generate sample events.
-5. Press **F2** or click **Open Feedback Panel** to test feedback.
+4. Play the Breakout example with **A/D**, **Left/Right**, **Space**, or the mouse.
+5. Watch the Godot Output panel in DEV mode as gameplay logs events such as `game.start`, `ball.launch`, `brick.hit`, `life.lost`, `level.clear`, and `game.over`.
+6. Press **F2** or click **Feedback** to test the in-game feedback panel.
 
 The example uses `Mode.AUTO`, so it runs locally as `DEV` from the editor. Replace `YOUR_PUBLIC_KEY` with your real public key before creating a release export.
 
