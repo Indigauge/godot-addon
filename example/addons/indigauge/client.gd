@@ -21,6 +21,7 @@ const FeedbackPanelScene := preload("res://addons/indigauge/feedback_panel.tscn"
 var config: IndigaugeTypes.IndigaugeConfig
 
 var _http: HTTPRequest
+var _metadata_http: HTTPRequest
 var _flush_timer: Timer
 var _feedback_layer: CanvasLayer
 var _feedback_panel: Control
@@ -29,6 +30,9 @@ var _session_token: String = ""
 var _session_start_ms: int = 0
 var _queue: Array[IndigaugeTypes.EventPayload] = []
 var _player_id: String = ""
+var _session_metadata: Dictionary = {}
+var _session_metadata_dirty: bool = false
+var _session_metadata_request_in_flight: bool = false
 
 func _ready() -> void:
 	_ensure_runtime_nodes()
@@ -47,6 +51,10 @@ func _ensure_runtime_nodes() -> void:
 	if _http == null:
 		_http = HTTPRequest.new()
 		add_child(_http)
+
+	if _metadata_http == null:
+		_metadata_http = HTTPRequest.new()
+		add_child(_metadata_http)
 
 	if _flush_timer == null:
 		_flush_timer = Timer.new()
@@ -107,6 +115,7 @@ func start_session() -> void:
 		_session_token = "dev"
 		emit_signal("session_started", _session_token)
 		_log_info("DEVMODE: session started.")
+		flush_session_metadata()
 		return
 
 	if active_mode == IndigaugeTypes.Mode.LIVE and (config == null or not config.has_public_key()):
@@ -161,6 +170,83 @@ func _on_start_session_completed(_result: int, code: int, _headers: PackedString
 	_session_token = resp.session_token
 	emit_signal("session_started", _session_token)
 	_log_info("Session started.")
+	flush_session_metadata()
+
+# ---- Session metadata ----
+func set_session_metadata(metadata: Dictionary) -> void:
+	var next_metadata := metadata.duplicate(true)
+	if _session_metadata == next_metadata:
+		return
+	_session_metadata = next_metadata
+	_mark_session_metadata_dirty()
+
+func update_session_metadata(metadata: Dictionary) -> void:
+	var changed := false
+	for key in metadata:
+		if not _session_metadata.has(key) or _session_metadata[key] != metadata[key]:
+			changed = true
+		_session_metadata[key] = metadata[key]
+	if changed:
+		_mark_session_metadata_dirty()
+
+func set_session_metadata_value(key: String, value: Variant) -> void:
+	if _session_metadata.has(key) and _session_metadata[key] == value:
+		return
+	_session_metadata[key] = value
+	_mark_session_metadata_dirty()
+
+func remove_session_metadata_value(key: String) -> void:
+	if _session_metadata.has(key):
+		_session_metadata.erase(key)
+		_mark_session_metadata_dirty()
+
+func get_session_metadata() -> Dictionary:
+	return _session_metadata.duplicate(true)
+
+func _mark_session_metadata_dirty() -> void:
+	_session_metadata_dirty = true
+	flush_session_metadata()
+
+func flush_session_metadata() -> bool:
+	if _session_token == "" or not _session_metadata_dirty or _session_metadata_request_in_flight:
+		return false
+
+	match effective_mode():
+		IndigaugeTypes.Mode.DEV:
+			_session_metadata_dirty = false
+			_log_info("DEVMODE: update session metadata: %s" % JSON.stringify(_session_metadata))
+			return true
+		IndigaugeTypes.Mode.LIVE:
+			var url := config.api_url("sessions")
+			var headers := [
+				"Content-Type: application/json",
+				"X-Indigauge-Key: %s" % _session_token,
+			]
+			_session_metadata_dirty = false
+			_session_metadata_request_in_flight = true
+			_metadata_http.request_completed.connect(_on_session_metadata_completed, CONNECT_ONE_SHOT)
+			var request_error := _metadata_http.request(url, headers, HTTPClient.METHOD_PATCH, JSON.stringify(_session_metadata))
+			if request_error != OK:
+				_session_metadata_request_in_flight = false
+				_session_metadata_dirty = true
+				if _metadata_http.request_completed.is_connected(_on_session_metadata_completed):
+					_metadata_http.request_completed.disconnect(_on_session_metadata_completed)
+				_log_error("Failed to start session metadata request (error %d)" % request_error)
+				return false
+			return true
+		_:
+			return false
+
+func _on_session_metadata_completed(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	_session_metadata_request_in_flight = false
+	if code < 200 or code >= 300:
+		_session_metadata_dirty = true
+		_log_error("Failed to update session metadata (HTTP %d): %s" % [code, body.get_string_from_utf8()])
+		return
+
+	_log_info("Session metadata updated.")
+	if _session_metadata_dirty:
+		flush_session_metadata()
 
 # ---- Feedback panel ----
 func show_feedback_panel(parent: Node = null) -> Control:
@@ -236,8 +322,9 @@ func _dispatch_from_core(level: String, event_type: String, metadata: Variant, _
 
 # ---- Periodic tick: flush + heartbeat ----
 func _tick() -> void:
+	var metadata_sent := flush_session_metadata()
 	var sent := flush_events()
-	if sent == 0:
+	if sent == 0 and not metadata_sent:
 		send_heartbeat()
 
 func flush_events() -> int:

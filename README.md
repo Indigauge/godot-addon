@@ -8,6 +8,7 @@ Indigauge is designed for teams that want useful telemetry without building and 
 
 - **Fast integration:** one node, one startup call, and simple event helpers
 - **Production defaults:** automatic DEV/LIVE mode selection, batching, heartbeats, queue limits, and durable player IDs
+- **Session metadata:** maintain a JSON dictionary that syncs to the active Indigauge session when it changes
 - **Player feedback:** built-in F2 feedback panel with optional screenshot upload
 - **Godot-native workflow:** configure from the Inspector, use as a scene node, or register as an autoload
 - **Low ceremony API:** `ig_info`, `ig_warn`, `ig_error`, `show_feedback_panel`, and `submit_feedback`
@@ -132,6 +133,25 @@ Recommended event naming:
 
 ---
 
+## Session Metadata
+
+Session metadata is a JSON dictionary attached to the current session. Use it for state that describes the play session as a whole, such as selected character, region, difficulty, matchmaking mode, or experiment assignments.
+
+```gdscript
+_indigauge.set_session_metadata({
+	"difficulty": "hard",
+	"region": "eu",
+})
+
+_indigauge.set_session_metadata_value("character", "ranger")
+_indigauge.update_session_metadata({"partySize": 3, "matchmaking": "ranked"})
+_indigauge.remove_session_metadata_value("region")
+```
+
+Changes are queued automatically. Once a session is active, the addon sends the latest dictionary to `PATCH /v1/sessions` on the next flush tick, or immediately when possible. In `DEV` mode the update is logged locally.
+
+---
+
 ## Player Feedback
 
 The addon includes a ready-to-use feedback panel. By default, players can press **F2** to open or close it.
@@ -209,6 +229,17 @@ _indigauge.ig_debug(event_type, metadata = {})
 _indigauge.ig_info(event_type, metadata = {})
 _indigauge.ig_warn(event_type, metadata = {})
 _indigauge.ig_error(event_type, metadata = {})
+```
+
+### Session Metadata
+
+```gdscript
+_indigauge.set_session_metadata(metadata)
+_indigauge.update_session_metadata(metadata)
+_indigauge.set_session_metadata_value(key, value)
+_indigauge.remove_session_metadata_value(key)
+_indigauge.get_session_metadata()
+_indigauge.flush_session_metadata()
 ```
 
 ### Feedback
