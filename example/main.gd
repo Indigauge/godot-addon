@@ -91,6 +91,7 @@ func _new_game() -> void:
 	_brick_hits = 0
 	_build_bricks()
 	_reset_round("ready")
+	_sync_session_metadata(true)
 	_log_info("game.start", {"level": _level})
 
 func _build_bricks() -> void:
@@ -163,6 +164,7 @@ func _launch_ball() -> void:
 	_shots += 1
 	var horizontal := randf_range(-0.35, 0.35)
 	_ball_velocity = Vector2(horizontal, -1.0).normalized() * (STARTING_BALL_SPEED + (_level - 1) * 28.0)
+	_sync_session_metadata()
 	_log_info("ball.launch", {"level": _level, "shot": _shots, "lives": _lives})
 
 func _move_ball(delta: float) -> void:
@@ -184,12 +186,14 @@ func _move_ball(delta: float) -> void:
 
 	if _ball_position.y > BOARD_SIZE.y + BALL_RADIUS:
 		_lives -= 1
-		_log_warn("life.lost", {"score": _score, "level": _level, "lives": _lives})
 		if _lives <= 0:
 			_state = "gameover"
+			_sync_session_metadata()
 			_client.ig_error("game.over", {"score": _score, "level": _level, "hits": _brick_hits})
 		else:
 			_reset_round("ready")
+			_sync_session_metadata()
+		_log_warn("life.lost", {"score": _score, "level": _level, "lives": _lives})
 
 func _check_paddle_collision() -> void:
 	if _ball_velocity.y <= 0.0:
@@ -222,6 +226,7 @@ func _check_brick_collision() -> void:
 		_brick_hits += 1
 		_ball_velocity.y *= -1.0
 		_ball_velocity = _ball_velocity.normalized() * minf(_ball_velocity.length() + 10.0, MAX_BALL_SPEED)
+		_sync_session_metadata()
 		_log_info("brick.hit", {
 			"row": int(i / BRICK_COLS),
 			"col": i % BRICK_COLS,
@@ -240,6 +245,7 @@ func _level_cleared() -> void:
 	_build_bricks()
 	_reset_round("ready")
 	_state = "won"
+	_sync_session_metadata()
 
 func _remaining_bricks() -> int:
 	var count := 0
@@ -305,9 +311,25 @@ func _update_labels() -> void:
 func _to_board(global_position: Vector2) -> Vector2:
 	return global_position - _board_origin
 
+func _sync_session_metadata(replace: bool = false) -> void:
+	var metadata := {
+		"score": _score,
+		"lives": _lives,
+		"level": _level,
+		"shots": _shots,
+		"brickHits": _brick_hits,
+		"remainingBricks": _remaining_bricks(),
+		"state": _state,
+	}
+	if replace:
+		_client.set_session_metadata(metadata)
+	else:
+		_client.update_session_metadata(metadata)
+
 func _on_session_started(token: String) -> void:
 	_session_ready = true
 	_telemetry_label.text = "Indigauge DEV session active" if token == "dev" else "Indigauge session active"
+	_sync_session_metadata()
 
 func _on_session_failed(_code: int, message: String) -> void:
 	_session_ready = false
