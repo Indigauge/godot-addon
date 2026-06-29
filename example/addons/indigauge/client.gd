@@ -322,9 +322,7 @@ func submit_feedback(message: String, category: String, question: String = "", i
 			var headers := []
 
 			if include_screenshot:
-				toggle_feedback_panel() # hide panel before screenshot
 				var png := _capture_screenshot_png()
-				toggle_feedback_panel() # restore panel after screenshot
 				if png.is_empty():
 					_log_warn("Feedback screenshot was requested, but no screenshot could be captured.")
 					_http.request_completed.disconnect(_on_feedback_completed)
