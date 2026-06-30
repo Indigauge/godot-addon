@@ -10,6 +10,7 @@ var client: IndigaugeClient
 @onready var _submit: Button = $Center/PanelContainer/VBox/Footer/Buttons/Submit
 @onready var _cancel: Button = $Center/PanelContainer/VBox/Footer/Buttons/Cancel
 
+
 func _ready() -> void:
 	if client == null:
 		client = _find_client()
@@ -18,10 +19,12 @@ func _ready() -> void:
 	_cancel.pressed.connect(queue_free)
 	_message.call_deferred("grab_focus")
 
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		queue_free()
 		get_viewport().set_input_as_handled()
+
 
 func _on_submit() -> void:
 	if client == null:
@@ -47,9 +50,11 @@ func _on_submit() -> void:
 	client.submit_feedback(message, cat, question, include_screenshot)
 	queue_free()
 
+
 func _show_error(message: String) -> void:
 	_error.text = message
 	_error.visible = true
+
 
 func _find_client() -> IndigaugeClient:
 	var clients := get_tree().get_nodes_in_group("indigauge_clients")
