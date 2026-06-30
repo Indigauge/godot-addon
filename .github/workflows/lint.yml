@@ -1,0 +1,11 @@
+name: GDScript Linting
+on: [push, pull_request]
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Scony/godot-gdscript-toolkit@master
+      - run: gdformat --check .
+      - run: gdlint .
