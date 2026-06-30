@@ -1,0 +1,89 @@
+name: Release Godot addon
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: Optional release name for manual runs
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package addon zip
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build addon archive
+        id: package
+        shell: bash
+        env:
+          MANUAL_RELEASE_NAME: ${{ github.event.inputs.release_name || '' }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            RELEASE_NAME="${GITHUB_REF_NAME}"
+          elif [[ -n "${MANUAL_RELEASE_NAME}" ]]; then
+            RELEASE_NAME="${MANUAL_RELEASE_NAME}"
+          else
+            RELEASE_NAME="manual-${GITHUB_RUN_NUMBER}"
+          fi
+
+          SAFE_RELEASE_NAME="$(echo "${RELEASE_NAME}" | tr '/\\ :' '----')"
+          ZIP_NAME="indigauge-godot-addon-${SAFE_RELEASE_NAME}.zip"
+          PACKAGE_DIR="dist/indigauge-godot-addon"
+          ADDON_DIR="${PACKAGE_DIR}/addons/indigauge"
+
+          rm -rf dist
+          mkdir -p "${ADDON_DIR}"
+
+          cp client.gd "${ADDON_DIR}/"
+          cp core.gd "${ADDON_DIR}/"
+          cp types.gd "${ADDON_DIR}/"
+          cp feedback_panel.gd "${ADDON_DIR}/"
+          cp feedback_panel.tscn "${ADDON_DIR}/"
+          cp plugin.cfg "${ADDON_DIR}/"
+          cp README.md "${PACKAGE_DIR}/"
+          cp LICENSE "${PACKAGE_DIR}/"
+
+          (
+            cd dist
+            zip -r "../${ZIP_NAME}" "indigauge-godot-addon"
+          )
+
+          echo "release_name=${RELEASE_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "zip_name=${ZIP_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify archive contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -l "${{ steps.package.outputs.zip_name }}"
+          unzip -l "${{ steps.package.outputs.zip_name }}" | grep "addons/indigauge/plugin.cfg"
+          unzip -l "${{ steps.package.outputs.zip_name }}" | grep "addons/indigauge/client.gd"
+          unzip -l "${{ steps.package.outputs.zip_name }}" | grep "addons/indigauge/feedback_panel.tscn"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.zip_name }}
+          path: ${{ steps.package.outputs.zip_name }}
+          if-no-files-found: error
+
+      - name: Attach zip to GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.package.outputs.release_name }}
+          files: ${{ steps.package.outputs.zip_name }}
+          generate_release_notes: true
