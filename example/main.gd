@@ -19,14 +19,6 @@ const STARTING_LIVES := 3
 const STARTING_BALL_SPEED := 330.0
 const MAX_BALL_SPEED := 560.0
 
-@onready var _score_label: Label = $Hud/ScoreLabel
-@onready var _lives_label: Label = $Hud/LivesLabel
-@onready var _status_label: Label = $Hud/StatusLabel
-@onready var _telemetry_label: Label = $Hud/TelemetryLabel
-@onready var _restart_button: Button = $Hud/Actions/RestartButton
-@onready var _feedback_button: Button = $Hud/Actions/FeedbackButton
-@onready var _client: IndigaugeClient = $IndigaugeClient
-
 var _board_origin := Vector2.ZERO
 var _paddle_x := 0.0
 var _ball_position := Vector2.ZERO
@@ -40,6 +32,14 @@ var _brick_hits := 0
 var _state := "ready"
 var _session_ready := false
 var _mouse_was_down := false
+
+@onready var _score_label: Label = $Hud/ScoreLabel
+@onready var _lives_label: Label = $Hud/LivesLabel
+@onready var _status_label: Label = $Hud/StatusLabel
+@onready var _telemetry_label: Label = $Hud/TelemetryLabel
+@onready var _restart_button: Button = $Hud/Actions/RestartButton
+@onready var _feedback_button: Button = $Hud/Actions/FeedbackButton
+@onready var _client: IndigaugeClient = $IndigaugeClient
 
 
 func _ready() -> void:
