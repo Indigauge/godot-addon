@@ -26,18 +26,21 @@ Use `Mode.AUTO` during development and production. It resolves to `DEV` while ru
 
 ## Installation
 
-Copy the addon into your project:
+Download `indigauge-godot-addon-<tag>.zip` from the latest GitHub release and
+copy the `addons/indigauge/` folder into your Godot project.
+
+You can also copy the addon files from this repository manually:
 
 ```text
 your_project/
-└── addons/
-    └── indigauge/
-        ├── plugin.cfg
-        ├── client.gd
-        ├── core.gd
-        ├── types.gd
-        ├── feedback_panel.gd
-        └── feedback_panel.tscn
+  addons/
+    indigauge/
+      plugin.cfg
+      client.gd
+      core.gd
+      types.gd
+      feedback_panel.gd
+      feedback_panel.tscn
 ```
 
 Then enable it in Godot:
@@ -49,6 +52,26 @@ Then enable it in Godot:
 Use the autoload name `Indigauge` rather than `IndigaugeClient` so it does not collide with the `IndigaugeClient` script type.
 
 ---
+
+## Release Zips
+
+This repository publishes a downloadable addon zip whenever a Git tag is pushed.
+The release zip contains:
+
+```text
+indigauge-godot-addon/
+  README.md
+  LICENSE
+  addons/
+    indigauge/
+      plugin.cfg
+      client.gd
+      core.gd
+      types.gd
+      feedback_panel.gd
+      feedback_panel.tscn
+```
+
 
 ## Quick Start
 
