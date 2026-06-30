@@ -1,179 +1,211 @@
-[gd_scene load_steps=2 format=3 uid="uid://indigauge_feedback_panel"]
+[gd_scene format=3 uid="uid://e3jwtdn3w0q3"]
 
-[ext_resource type="Script" path="res://addons/indigauge/feedback_panel.gd" id="1_1"]
+[ext_resource type="Script" uid="uid://vku5ygupqn25" path="res://addons/indigauge/feedback_panel.gd" id="1_1"]
 
-[node name="FeedbackPanel" type="Control"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dupri"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+bg_color = Color(0.007843138, 0.12156863, 0.11372549, 0.92156863)
+border_color = Color(0.3505245, 0.914279, 0.74253684, 1)
+border_blend = true
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+expand_margin_left = 8.0
+expand_margin_top = 8.0
+expand_margin_right = 8.0
+expand_margin_bottom = 8.0
+
+[sub_resource type="Theme" id="Theme_715ky"]
+PanelContainer/styles/panel = SubResource("StyleBoxFlat_dupri")
+
+[node name="FeedbackPanel" type="Control" unique_id=1022429445]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 0.0
-offset_bottom = 0.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 1
 script = ExtResource("1_1")
 
-[node name="Dim" type="ColorRect" parent="."]
-layout_mode = 3
+[node name="Dim" type="ColorRect" parent="." unique_id=703034889]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 0.0
-offset_bottom = 0.0
-color = Color(0, 0, 0, 0.55)
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 1
+color = Color(0, 0, 0, 0.55)
 
-[node name="Center" type="CenterContainer" parent="."]
-layout_mode = 3
+[node name="Center" type="CenterContainer" parent="." unique_id=1591242494]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 0.0
-offset_bottom = 0.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="Center"]
+[node name="PanelContainer" type="PanelContainer" parent="Center" unique_id=437517089]
 custom_minimum_size = Vector2(560, 520)
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
+layout_mode = 2
+theme = SubResource("Theme_715ky")
 
-[node name="VBox" type="VBoxContainer" parent="Center/PanelContainer"]
+[node name="VBox" type="VBoxContainer" parent="Center/PanelContainer" unique_id=690279056]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 12
 
-[node name="Header" type="VBoxContainer" parent="Center/PanelContainer/VBox"]
+[node name="Header" type="VBoxContainer" parent="Center/PanelContainer/VBox" unique_id=686017199]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="Title" type="Label" parent="Center/PanelContainer/VBox/Header"]
+[node name="Title" type="Label" parent="Center/PanelContainer/VBox/Header" unique_id=951696992]
 layout_mode = 2
+offset_transform_position = Vector2(5, 0)
 text = "Send feedback"
-horizontal_alignment = 0
 autowrap_mode = 2
 
-[node name="Subtitle" type="Label" parent="Center/PanelContainer/VBox/Header"]
+[node name="Subtitle" type="Label" parent="Center/PanelContainer/VBox/Header" unique_id=1954338228]
+modulate = Color(1, 1, 1, 0.85)
 layout_mode = 2
 text = "Tell us what happened. You can include a screenshot."
 autowrap_mode = 2
-modulate = Color(1, 1, 1, 0.85)
 
-[node name="Form" type="VBoxContainer" parent="Center/PanelContainer/VBox"]
+[node name="Form" type="VBoxContainer" parent="Center/PanelContainer/VBox" unique_id=823151833]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 10
 
-[node name="CategoryRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form"]
+[node name="CategoryRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form" unique_id=1678165069]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="CategoryLabel" type="Label" parent="Center/PanelContainer/VBox/Form/CategoryRow"]
+[node name="CategoryLabel" type="Label" parent="Center/PanelContainer/VBox/Form/CategoryRow" unique_id=37881065]
 layout_mode = 2
 text = "Category"
 autowrap_mode = 2
 
-[node name="Category" type="OptionButton" parent="Center/PanelContainer/VBox/Form/CategoryRow"]
+[node name="Category" type="OptionButton" parent="Center/PanelContainer/VBox/Form/CategoryRow" unique_id=2046035842]
 layout_mode = 2
 size_flags_horizontal = 3
-item_count = 6
 selected = 0
-popup/item_0/text = "Bug"
-popup/item_1/text = "Suggestion"
-popup/item_2/text = "Balance"
+item_count = 13
+popup/item_0/text = "Bugs"
+popup/item_0/id = 0
+popup/item_1/text = "General"
+popup/item_1/id = 1
+popup/item_2/text = "Feature"
+popup/item_2/id = 2
 popup/item_3/text = "Performance"
-popup/item_4/text = "UX"
-popup/item_5/text = "Other"
+popup/item_3/id = 3
+popup/item_4/text = "UI"
+popup/item_4/id = 4
+popup/item_5/text = "Gameplay"
+popup/item_5/id = 5
+popup/item_6/text = "Controls"
+popup/item_6/id = 6
+popup/item_7/text = "Audio"
+popup/item_7/id = 7
+popup/item_8/text = "Graphics"
+popup/item_8/id = 8
+popup/item_9/text = "Visual"
+popup/item_9/id = 9
+popup/item_10/text = "Balance"
+popup/item_10/id = 10
+popup/item_11/text = "Art"
+popup/item_11/id = 11
+popup/item_12/text = "Other"
+popup/item_12/id = 12
 
-[node name="QuestionRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form"]
+[node name="QuestionRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form" unique_id=712865958]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="QuestionLabel" type="Label" parent="Center/PanelContainer/VBox/Form/QuestionRow"]
+[node name="QuestionLabel" type="Label" parent="Center/PanelContainer/VBox/Form/QuestionRow" unique_id=496746627]
 layout_mode = 2
 text = "Question (optional)"
 autowrap_mode = 2
 
-[node name="Question" type="LineEdit" parent="Center/PanelContainer/VBox/Form/QuestionRow"]
+[node name="Question" type="LineEdit" parent="Center/PanelContainer/VBox/Form/QuestionRow" unique_id=804462212]
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "What were you trying to do?"
 clear_button_enabled = true
 
-[node name="MessageRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form"]
+[node name="MessageRow" type="VBoxContainer" parent="Center/PanelContainer/VBox/Form" unique_id=1345996624]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 6
 
-[node name="MessageLabel" type="Label" parent="Center/PanelContainer/VBox/Form/MessageRow"]
+[node name="MessageLabel" type="Label" parent="Center/PanelContainer/VBox/Form/MessageRow" unique_id=190441623]
 layout_mode = 2
 text = "Message"
 autowrap_mode = 2
 
-[node name="Message" type="TextEdit" parent="Center/PanelContainer/VBox/Form/MessageRow"]
+[node name="Message" type="TextEdit" parent="Center/PanelContainer/VBox/Form/MessageRow" unique_id=30687120]
+custom_minimum_size = Vector2(0, 220)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-custom_minimum_size = Vector2(0, 220)
 placeholder_text = "Describe what you experienced..."
 wrap_mode = 1
 
-[node name="OptionsRow" type="HBoxContainer" parent="Center/PanelContainer/VBox/Form"]
+[node name="OptionsRow" type="HBoxContainer" parent="Center/PanelContainer/VBox/Form" unique_id=1981532678]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="Screenshot" type="CheckBox" parent="Center/PanelContainer/VBox/Form/OptionsRow"]
+[node name="Screenshot" type="CheckBox" parent="Center/PanelContainer/VBox/Form/OptionsRow" unique_id=1440294397]
 layout_mode = 2
-text = "Include screenshot"
 button_pressed = true
+text = "Include screenshot"
 
-[node name="Spacer" type="Control" parent="Center/PanelContainer/VBox/Form/OptionsRow"]
+[node name="Spacer" type="Control" parent="Center/PanelContainer/VBox/Form/OptionsRow" unique_id=1031933895]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Hint" type="Label" parent="Center/PanelContainer/VBox/Form/OptionsRow"]
+[node name="Hint" type="Label" parent="Center/PanelContainer/VBox/Form/OptionsRow" unique_id=374071400]
+modulate = Color(1, 1, 1, 0.65)
 layout_mode = 2
 text = "F2 to toggle"
-modulate = Color(1, 1, 1, 0.65)
 
-[node name="Footer" type="VBoxContainer" parent="Center/PanelContainer/VBox"]
+[node name="Footer" type="VBoxContainer" parent="Center/PanelContainer/VBox" unique_id=404381308]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="Error" type="Label" parent="Center/PanelContainer/VBox/Footer"]
-layout_mode = 2
-text = ""
+[node name="Error" type="Label" parent="Center/PanelContainer/VBox/Footer" unique_id=1463206238]
 visible = false
-autowrap_mode = 2
 modulate = Color(1, 0.45, 0.45, 1)
+layout_mode = 2
+autowrap_mode = 2
 
-[node name="Buttons" type="HBoxContainer" parent="Center/PanelContainer/VBox/Footer"]
+[node name="Buttons" type="HBoxContainer" parent="Center/PanelContainer/VBox/Footer" unique_id=2071090824]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
-[node name="Cancel" type="Button" parent="Center/PanelContainer/VBox/Footer/Buttons"]
+[node name="Cancel" type="Button" parent="Center/PanelContainer/VBox/Footer/Buttons" unique_id=1662061043]
 layout_mode = 2
 text = "Cancel"
 
-[node name="Spacer" type="Control" parent="Center/PanelContainer/VBox/Footer/Buttons"]
+[node name="Spacer" type="Control" parent="Center/PanelContainer/VBox/Footer/Buttons" unique_id=119263006]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Submit" type="Button" parent="Center/PanelContainer/VBox/Footer/Buttons"]
+[node name="Submit" type="Button" parent="Center/PanelContainer/VBox/Footer/Buttons" unique_id=1721507123]
 layout_mode = 2
-text = "Send"
 size_flags_horizontal = 0
+text = "Send"

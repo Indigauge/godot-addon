@@ -35,7 +35,16 @@ func _on_submit() -> void:
 		return
 
 	var cat := _category.get_item_text(_category.selected)
-	client.submit_feedback(message, cat, _question.text.strip_edges(), _screenshot.button_pressed)
+	var question := _question.text.strip_edges()
+	var include_screenshot := _screenshot.button_pressed
+
+	if include_screenshot:
+		_submit.disabled = true
+		_cancel.disabled = true
+		visible = false
+		await RenderingServer.frame_post_draw
+
+	client.submit_feedback(message, cat, question, include_screenshot)
 	queue_free()
 
 func _show_error(message: String) -> void:
