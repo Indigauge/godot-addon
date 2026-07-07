@@ -42,17 +42,12 @@ jobs:
           SAFE_RELEASE_NAME="$(echo "${RELEASE_NAME}" | tr '/\\ :' '----')"
           ZIP_NAME="indigauge-godot-addon-${SAFE_RELEASE_NAME}.zip"
           PACKAGE_DIR="dist/indigauge-godot-addon"
-          ADDON_DIR="${PACKAGE_DIR}/addons/indigauge"
+          SOURCE_ADDON_DIR="addons/indigauge"
 
           rm -rf dist
-          mkdir -p "${ADDON_DIR}"
+          mkdir -p "${PACKAGE_DIR}/addons"
 
-          cp client.gd "${ADDON_DIR}/"
-          cp core.gd "${ADDON_DIR}/"
-          cp types.gd "${ADDON_DIR}/"
-          cp feedback_panel.gd "${ADDON_DIR}/"
-          cp feedback_panel.tscn "${ADDON_DIR}/"
-          cp plugin.cfg "${ADDON_DIR}/"
+          cp -R "${SOURCE_ADDON_DIR}" "${PACKAGE_DIR}/addons/"
           cp README.md "${PACKAGE_DIR}/"
           cp LICENSE "${PACKAGE_DIR}/"
 
