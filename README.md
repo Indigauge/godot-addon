@@ -41,6 +41,7 @@ your_project/
       types.gd
       feedback_panel.gd
       feedback_panel.tscn
+      feedback_theme.tres
 ```
 
 Then enable it in Godot:
@@ -70,6 +71,7 @@ indigauge-godot-addon/
       types.gd
       feedback_panel.gd
       feedback_panel.tscn
+      feedback_theme.tres
 ```
 
 
@@ -192,6 +194,12 @@ The panel supports:
 - Optional screenshot upload
 - Escape-to-close
 - Automatic placement in a high-priority `CanvasLayer`
+- A self-contained dark theme with mint accents, visible keyboard focus, and styled validation errors
+- A centered, scrollable layout that adapts to smaller game windows
+
+The panel's appearance is defined in `addons/indigauge/feedback_theme.tres` and
+`addons/indigauge/feedback_panel.tscn`, independently of your game's theme. Keep
+both resources with the addon when copying it into a project.
 
 You can also submit feedback directly:
 

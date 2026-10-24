@@ -2,13 +2,16 @@ extends Control
 
 var client: IndigaugeClient
 
-@onready var _category: OptionButton = $Center/PanelContainer/VBox/Form/CategoryRow/Category
-@onready var _question: LineEdit = $Center/PanelContainer/VBox/Form/QuestionRow/Question
-@onready var _message: TextEdit = $Center/PanelContainer/VBox/Form/MessageRow/Message
-@onready var _screenshot: CheckBox = $Center/PanelContainer/VBox/Form/OptionsRow/Screenshot
-@onready var _error: Label = $Center/PanelContainer/VBox/Footer/Error
-@onready var _submit: Button = $Center/PanelContainer/VBox/Footer/Buttons/Submit
-@onready var _cancel: Button = $Center/PanelContainer/VBox/Footer/Buttons/Cancel
+@onready var _category: OptionButton = %Category
+@onready var _question: LineEdit = %Question
+@onready var _message: TextEdit = %Message
+@onready var _screenshot: CheckBox = %Screenshot
+@onready var _error: Label = %Error
+@onready var _submit: Button = %Submit
+@onready var _cancel: Button = %Cancel
+@onready var _card: PanelContainer = %Card
+@onready var _close: Button = %Close
+@onready var _scroll: ScrollContainer = $Center/Card/Scroll
 
 
 func _ready() -> void:
@@ -17,7 +20,17 @@ func _ready() -> void:
 
 	_submit.pressed.connect(_on_submit)
 	_cancel.pressed.connect(queue_free)
+	_close.pressed.connect(queue_free)
+	resized.connect(_fit_card)
+	_fit_card()
 	_message.call_deferred("grab_focus")
+
+
+func _fit_card() -> void:
+	_card.custom_minimum_size = Vector2(
+		clampf(size.x - 40.0, 0.0, 600.0), clampf(size.y - 40.0, 0.0, 720.0)
+	)
+	_message.custom_minimum_size.y = 100.0 if size.y < 740.0 else 132.0
 
 
 func _input(event: InputEvent) -> void:
@@ -54,6 +67,8 @@ func _on_submit() -> void:
 func _show_error(message: String) -> void:
 	_error.text = message
 	_error.visible = true
+	await get_tree().process_frame
+	_scroll.ensure_control_visible(_submit)
 
 
 func _find_client() -> IndigaugeClient:
