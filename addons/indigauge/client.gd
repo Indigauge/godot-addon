@@ -5,8 +5,11 @@ extends Node
 signal session_started(session_token: String)
 signal session_failed(http_code: int, error_message: String)
 signal feedback_sent(feedback_id: String)
+signal consent_selected(choice: IndigaugeTypes.ConsentChoice)
 
 const FeedbackPanelScene := preload("res://addons/indigauge/feedback_panel.tscn")
+const ConsentPanelScene := preload("res://addons/indigauge/consent_panel.tscn")
+const CONSENT_PATH := "user://telemetry_consent.txt"
 
 @export var public_key: String = ""
 @export var game_name: String = ""
@@ -16,22 +19,34 @@ const FeedbackPanelScene := preload("res://addons/indigauge/feedback_panel.tscn"
 @export var feedback_hotkey_enabled: bool = true
 @export var feedback_key: int = KEY_F2
 @export var feedback_canvas_layer: int = 128
+@export var consent_modal_enabled: bool = true
+@export var persist_consent_choice: bool = true
+@export var consent_canvas_layer: int = 129
 @export_enum("LIVE", "DEV", "DISABLED", "AUTO") var mode: int = IndigaugeTypes.Mode.AUTO
 @export_enum("DEBUG", "INFO", "WARN", "ERROR", "SILENT")
 var log_level: int = IndigaugeTypes.LogLevel.INFO
 
 var config: IndigaugeTypes.IndigaugeConfig
 
+var consent_choice: IndigaugeTypes.ConsentChoice:
+	get:
+		return _consent_choice
+
 var _http: HTTPRequest
 var _metadata_http: HTTPRequest
 var _flush_timer: Timer
 var _feedback_layer: CanvasLayer
 var _feedback_panel: Control
+var _consent_layer: CanvasLayer
+var _consent_panel: Control
+var _consent_choice := IndigaugeTypes.ConsentChoice.UNKNOWN
+var _consent_loaded: bool = false
+var _start_requested: bool = false
+var _session_start_in_flight: bool = false
 
 var _session_token: String = ""
 var _session_start_ms: int = 0
 var _queue: Array[IndigaugeTypes.EventPayload] = []
-var _player_id: String = ""
 var _session_metadata: Dictionary = {}
 var _session_metadata_dirty: bool = false
 var _session_metadata_request_in_flight: bool = false
@@ -68,6 +83,8 @@ func _ensure_runtime_nodes() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if is_instance_valid(_consent_panel) and _consent_panel.visible:
+		return
 	if not feedback_hotkey_enabled:
 		return
 	if (
@@ -106,7 +123,7 @@ func setup(
 	)
 	_flush_timer.wait_time = config.flush_interval_sec
 	_flush_timer.start()
-	_player_id = _load_or_create_player_id()
+	_load_consent_choice()
 
 	if start_now:
 		start_session()
@@ -141,6 +158,18 @@ func start_session() -> void:
 	if config == null:
 		setup()
 
+	if consent_choice != IndigaugeTypes.ConsentChoice.ACCEPTED:
+		_start_requested = consent_choice == IndigaugeTypes.ConsentChoice.UNKNOWN
+		_log_info("Session blocked: explicit player consent is required.")
+		if _start_requested and consent_modal_enabled:
+			show_consent_panel()
+		return
+
+	_start_requested = false
+	if _session_token != "" or _session_start_in_flight:
+		_log_warn("Session already started or starting.")
+		return
+
 	_session_start_ms = Time.get_ticks_msec()
 
 	if active_mode == IndigaugeTypes.Mode.DEV:
@@ -158,17 +187,6 @@ func start_session() -> void:
 	var p := IndigaugeTypes.StartSessionPayload.new()
 	p.client_version = config.game_version
 	p.sdk_version = "godot-gdscript:0.1.0"
-	p.player_id = _player_id
-	p.platform = OS.get_name()
-	p.os = OS.get_name()
-
-	var cpu := OS.get_processor_name()
-	var cpu_coarse := IndigaugeCore.coarsen_cpu_name(cpu)
-	p.cpu_family = cpu_coarse if cpu_coarse != "" else ""
-
-	p.cores = IndigaugeCore.bucket_cores(OS.get_processor_count())
-	p.memory = ""
-
 	var url := config.api_url("sessions/start")
 	var headers := [
 		"Content-Type: application/json",
@@ -176,12 +194,23 @@ func start_session() -> void:
 	]
 
 	_http.request_completed.connect(_on_start_session_completed, CONNECT_ONE_SHOT)
-	_http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(p.to_json()))
+	_session_start_in_flight = true
+	var request_error := _http.request(
+		url, headers, HTTPClient.METHOD_POST, JSON.stringify(p.to_json())
+	)
+	if request_error != OK:
+		_session_start_in_flight = false
+		_http.request_completed.disconnect(_on_start_session_completed)
+		_log_error("Failed to start session request (error %d)" % request_error)
+		emit_signal("session_failed", 0, "request_failed")
 
 
 func _on_start_session_completed(
 	_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray
 ) -> void:
+	_session_start_in_flight = false
+	if not _telemetry_allowed():
+		return
 	var text := body.get_string_from_utf8()
 	if code < 200 or code >= 300:
 		_log_error("Failed to start session (HTTP %d): %s" % [code, text])
@@ -206,6 +235,132 @@ func _on_start_session_completed(
 	emit_signal("session_started", _session_token)
 	_log_info("Session started.")
 	flush_session_metadata()
+
+
+# ---- Telemetry consent ----
+func set_consent_choice(choice: IndigaugeTypes.ConsentChoice) -> void:
+	if choice not in IndigaugeTypes.ConsentChoice.values():
+		_log_error("Invalid telemetry consent choice: %d" % choice)
+		return
+	_consent_loaded = true
+	var changed := _consent_choice != choice
+	_consent_choice = choice
+	if choice != IndigaugeTypes.ConsentChoice.ACCEPTED:
+		_revoke_telemetry()
+		if choice == IndigaugeTypes.ConsentChoice.DECLINED:
+			_start_requested = false
+	_persist_consent()
+	if choice != IndigaugeTypes.ConsentChoice.UNKNOWN:
+		hide_consent_panel()
+		if changed:
+			consent_selected.emit(choice)
+	if choice == IndigaugeTypes.ConsentChoice.ACCEPTED and _start_requested:
+		start_session()
+
+
+func show_consent_panel(parent: Node = null) -> Control:
+	_ensure_runtime_nodes()
+	_load_consent_choice()
+	if consent_choice != IndigaugeTypes.ConsentChoice.UNKNOWN:
+		return null
+	if is_instance_valid(_consent_panel):
+		return _consent_panel
+	hide_feedback_panel()
+	if parent == null and not is_instance_valid(_consent_layer):
+		_consent_layer = CanvasLayer.new()
+		_consent_layer.name = "IndigaugeConsentLayer"
+		_consent_layer.layer = consent_canvas_layer
+		add_child(_consent_layer)
+	_consent_panel = ConsentPanelScene.instantiate()
+	_consent_panel.set("client", self)
+	var target_parent := parent if parent != null else _consent_layer
+	target_parent.add_child(_consent_panel)
+	return _consent_panel
+
+
+func hide_consent_panel() -> void:
+	if is_instance_valid(_consent_panel):
+		_consent_panel.hide()
+		_consent_panel.queue_free()
+	_consent_panel = null
+
+
+func _telemetry_allowed() -> bool:
+	return (
+		consent_choice == IndigaugeTypes.ConsentChoice.ACCEPTED
+		and effective_mode() != IndigaugeTypes.Mode.DISABLED
+	)
+
+
+func _revoke_telemetry() -> void:
+	_session_token = ""
+	_session_start_ms = 0
+	_queue.clear()
+	_session_metadata.clear()
+	_session_metadata_dirty = false
+	_session_metadata_request_in_flight = false
+	_session_start_in_flight = false
+	if _http != null:
+		_http.cancel_request()
+		for callback in [_on_start_session_completed, _on_feedback_completed]:
+			if _http.request_completed.is_connected(callback):
+				_http.request_completed.disconnect(callback)
+	if _metadata_http != null:
+		_metadata_http.cancel_request()
+		if _metadata_http.request_completed.is_connected(_on_session_metadata_completed):
+			_metadata_http.request_completed.disconnect(_on_session_metadata_completed)
+	hide_feedback_panel()
+
+
+func _load_consent_choice() -> void:
+	if _consent_loaded:
+		return
+	_consent_loaded = true
+	if OS.has_feature("web") or not persist_consent_choice:
+		return
+	var path := _consent_file_path()
+	if not FileAccess.file_exists(path):
+		return
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		_log_error("Cannot read telemetry consent (error %d)." % FileAccess.get_open_error())
+		return
+	var value := file.get_as_text().strip_edges().to_lower()
+	match value:
+		"accepted":
+			_consent_choice = IndigaugeTypes.ConsentChoice.ACCEPTED
+		"declined":
+			_consent_choice = IndigaugeTypes.ConsentChoice.DECLINED
+		_:
+			_log_warn("Invalid saved telemetry consent; explicit consent is required.")
+			return
+	consent_selected.emit(_consent_choice)
+
+
+func _persist_consent() -> void:
+	if OS.has_feature("web") or not persist_consent_choice:
+		return
+	var path := _consent_file_path()
+	if consent_choice == IndigaugeTypes.ConsentChoice.UNKNOWN:
+		if FileAccess.file_exists(path):
+			var error := DirAccess.remove_absolute(path)
+			if error != OK:
+				_log_error("Cannot remove telemetry consent (error %d)." % error)
+		return
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		_log_error("Cannot save telemetry consent (error %d)." % FileAccess.get_open_error())
+		return
+	file.store_string(
+		"accepted" if consent_choice == IndigaugeTypes.ConsentChoice.ACCEPTED else "declined"
+	)
+	file.flush()
+	if file.get_error() != OK:
+		_log_error("Failed to write telemetry consent (error %d)." % file.get_error())
+
+
+func _consent_file_path() -> String:
+	return CONSENT_PATH
 
 
 # ---- Session metadata ----
@@ -250,6 +405,8 @@ func _mark_session_metadata_dirty() -> void:
 
 
 func flush_session_metadata() -> bool:
+	if not _telemetry_allowed():
+		return false
 	if _session_token == "" or not _session_metadata_dirty or _session_metadata_request_in_flight:
 		return false
 
@@ -288,6 +445,8 @@ func _on_session_metadata_completed(
 	_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray
 ) -> void:
 	_session_metadata_request_in_flight = false
+	if not _telemetry_allowed():
+		return
 	if code < 200 or code >= 300:
 		_session_metadata_dirty = true
 		_log_error(
@@ -302,6 +461,8 @@ func _on_session_metadata_completed(
 
 # ---- Feedback panel ----
 func show_feedback_panel(parent: Node = null) -> Control:
+	if is_instance_valid(_consent_panel) and _consent_panel.visible:
+		return null
 	if is_instance_valid(_feedback_panel):
 		_feedback_panel.grab_focus()
 		return _feedback_panel
@@ -364,7 +525,7 @@ func _dispatch_from_core(
 	level: String, event_type: String, metadata: Variant, _ctxdict: Dictionary
 ) -> bool:
 	# Only queue events once a session is established.
-	if _session_token == "":
+	if not _telemetry_allowed() or _session_token == "":
 		return false
 	if _queue.size() >= config.max_queue:
 		return false
@@ -391,7 +552,7 @@ func _tick() -> void:
 
 
 func flush_events() -> int:
-	if _session_token == "" or _queue.is_empty():
+	if not _telemetry_allowed() or _session_token == "" or _queue.is_empty():
 		return 0
 
 	var count := min(_queue.size(), config.batch_size)
@@ -420,7 +581,7 @@ func flush_events() -> int:
 
 
 func send_heartbeat() -> void:
-	if _session_token == "":
+	if not _telemetry_allowed() or _session_token == "":
 		return
 
 	match effective_mode():
@@ -462,8 +623,8 @@ func _feedback_category(requested_category: String) -> String:
 func submit_feedback(
 	message: String, category: String, question: String = "", include_screenshot: bool = false
 ) -> void:
-	if _session_token == "":
-		_log_warn("Cannot submit feedback before a session has started.")
+	if not _telemetry_allowed() or _session_token == "":
+		_log_warn("Cannot submit feedback without consent and an active session.")
 		return
 
 	var msg := message.strip_edges()
@@ -525,6 +686,8 @@ func submit_feedback(
 func _on_feedback_completed(
 	_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray
 ) -> void:
+	if not _telemetry_allowed():
+		return
 	if code < 200 or code >= 300:
 		_log_error("Failed to send feedback (HTTP %d): %s" % [code, body.get_string_from_utf8()])
 		return
@@ -627,19 +790,6 @@ func effective_mode() -> int:
 func _new_id() -> String:
 	# good-enough idempotency key for client-side batching
 	return "%s-%s" % [str(Time.get_unix_time_from_system()), str(randi())]
-
-
-func _load_or_create_player_id() -> String:
-	var path := "user://indigauge_player_id.txt"
-	if FileAccess.file_exists(path):
-		var f := FileAccess.open(path, FileAccess.READ)
-		var s := f.get_as_text().strip_edges()
-		if s != "":
-			return s
-	var new_id := _new_id()
-	var wf := FileAccess.open(path, FileAccess.WRITE)
-	wf.store_string(new_id)
-	return new_id
 
 
 func _resolve_game_name() -> String:

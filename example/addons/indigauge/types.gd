@@ -2,6 +2,7 @@ class_name IndigaugeTypes
 
 enum Mode { LIVE, DEV, DISABLED, AUTO }
 enum LogLevel { DEBUG, INFO, WARN, ERROR, SILENT }
+enum ConsentChoice { UNKNOWN, ACCEPTED, DECLINED }
 
 
 # ---- API response models ----
@@ -79,17 +80,23 @@ class StartSessionPayload:
 	var gpu: String = ""  # optional
 
 	func to_json() -> Dictionary:
-		return {
+		var payload := {
 			"clientVersion": client_version,
 			"sdkVersion": sdk_version,
-			"playerId": null if player_id == "" else player_id,
-			"platform": null if platform == "" else platform,
-			"os": null if os == "" else os,
-			"cpuFamily": null if cpu_family == "" else cpu_family,
-			"cores": null if cores == "" else cores,
-			"memory": null if memory == "" else memory,
-			"gpu": null if gpu == "" else gpu,
 		}
+		var optional_fields := {
+			"playerId": player_id,
+			"platform": platform,
+			"os": os,
+			"cpuFamily": cpu_family,
+			"cores": cores,
+			"memory": memory,
+			"gpu": gpu,
+		}
+		for key in optional_fields:
+			if optional_fields[key] != "":
+				payload[key] = optional_fields[key]
+		return payload
 
 
 class StartSessionResponse:

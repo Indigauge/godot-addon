@@ -67,6 +67,8 @@ jobs:
           unzip -l "${{ steps.package.outputs.zip_name }}" | grep "addons/indigauge/plugin.cfg"
           unzip -l "${{ steps.package.outputs.zip_name }}" | grep "addons/indigauge/client.gd"
           unzip -l "${{ steps.package.outputs.zip_name }}" | grep "addons/indigauge/feedback_panel.tscn"
+          unzip -l "${{ steps.package.outputs.zip_name }}" | grep "addons/indigauge/consent_panel.gd"
+          unzip -l "${{ steps.package.outputs.zip_name }}" | grep "addons/indigauge/consent_panel.tscn"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4

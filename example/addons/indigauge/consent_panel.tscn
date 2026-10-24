@@ -1,0 +1,78 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://addons/indigauge/consent_panel.gd" id="1"]
+[ext_resource type="Theme" path="res://addons/indigauge/feedback_theme.tres" id="2"]
+
+[node name="ConsentPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.008, 0.024, 0.09, 0.75)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Card" type="PanelContainer" parent="Center"]
+layout_mode = 2
+custom_minimum_size = Vector2(500, 0)
+
+[node name="Scroll" type="ScrollContainer" parent="Center/Card"]
+layout_mode = 2
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="Center/Card/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Center/Card/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+autowrap_mode = 2
+
+[node name="Message" type="Label" parent="Center/Card/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"MutedLabel"
+autowrap_mode = 2
+
+[node name="Buttons" type="VBoxContainer" parent="Center/Card/Scroll/Content"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Decline" type="Button" parent="Center/Card/Scroll/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_neighbor_top = NodePath("../Accept")
+focus_neighbor_bottom = NodePath("../Accept")
+focus_next = NodePath("../Accept")
+focus_previous = NodePath("../Accept")
+text = "Decline"
+
+[node name="Accept" type="Button" parent="Center/Card/Scroll/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_neighbor_top = NodePath("../Decline")
+focus_neighbor_bottom = NodePath("../Decline")
+focus_next = NodePath("../Decline")
+focus_previous = NodePath("../Decline")
+theme_type_variation = &"PrimaryButton"
+text = "Allow"

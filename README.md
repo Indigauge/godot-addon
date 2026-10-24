@@ -7,7 +7,8 @@ Indigauge is designed for teams that want useful telemetry without building and 
 ## What You Get
 
 - **Fast integration:** one node, one startup call, and simple event helpers
-- **Production defaults:** automatic DEV/LIVE mode selection, batching, heartbeats, queue limits, and durable player IDs
+- **Production defaults:** automatic DEV/LIVE mode selection, batching, heartbeats, and queue limits
+- **Explicit consent:** built-in consent modal, remembered native choices, and runtime opt-out enforcement
 - **Session metadata:** maintain a JSON dictionary that syncs to the active Indigauge session when it changes
 - **Player feedback:** built-in F2 feedback panel with optional screenshot upload
 - **Godot-native workflow:** configure from the Inspector, use as a scene node, or register as an autoload
@@ -39,6 +40,8 @@ your_project/
       client.gd
       core.gd
       types.gd
+      consent_panel.gd
+      consent_panel.tscn
       feedback_panel.gd
       feedback_panel.tscn
       feedback_theme.tres
@@ -69,6 +72,8 @@ indigauge-godot-addon/
       client.gd
       core.gd
       types.gd
+      consent_panel.gd
+      consent_panel.tscn
       feedback_panel.gd
       feedback_panel.tscn
       feedback_theme.tres
@@ -132,6 +137,68 @@ To force live telemetry while running from the editor:
 _indigauge.mode = IndigaugeTypes.Mode.LIVE
 _indigauge.start("YOUR_PUBLIC_KEY", "My Game", "1.0.0")
 ```
+
+---
+
+## Telemetry Consent
+
+Like the Bevy SDK, telemetry requires explicit player consent in **both DEV and
+LIVE modes**. Calling `start(...)` shows the built-in modal if no choice has been
+made, then starts the requested session only after the player selects **Allow**.
+Selecting **Decline** leaves telemetry off. `DISABLED` mode does not show a modal
+or start a session.
+
+- Consent starts as `IndigaugeTypes.ConsentChoice.UNKNOWN`.
+- Only `ACCEPTED` permits sessions, events, heartbeats, session metadata, or feedback.
+- `DECLINED` and `UNKNOWN` block transmission. Revoking acceptance immediately
+  discards session credentials, queued events, and pending session metadata, and
+  cancels in-flight SDK requests. Requests already received by the server cannot
+  be recalled.
+- On native builds, choices are remembered by default in the project's
+  `user://telemetry_consent.txt`. Web builds keep consent in memory only, matching
+  Bevy's non-persistent web behavior. Invalid saved choices require consent again.
+- Resetting to `UNKNOWN` removes the saved choice when persistence is enabled.
+- Session startup no longer creates or sends a persistent player ID or automatic
+  platform, OS, CPU, core-count, memory, or GPU fields. Feedback screenshots remain
+  an explicit, unchecked-by-default player opt-in.
+
+Use the same API for a settings screen or your own consent UI:
+
+```gdscript
+# Configure before start() to use your own UI. This does NOT bypass consent.
+_indigauge.consent_modal_enabled = false
+_indigauge.consent_selected.connect(_on_consent_selected)
+_indigauge.start("YOUR_PUBLIC_KEY", "My Game", "1.0.0")
+
+func _on_consent_selected(choice: IndigaugeTypes.ConsentChoice) -> void:
+	print("Telemetry choice: ", choice)
+
+func allow_telemetry() -> void:
+	_indigauge.set_consent_choice(IndigaugeTypes.ConsentChoice.ACCEPTED)
+	_indigauge.start_session() # Also supports re-enabling after a previous opt-out.
+
+func decline_telemetry() -> void:
+	_indigauge.set_consent_choice(IndigaugeTypes.ConsentChoice.DECLINED)
+
+func ask_again() -> void:
+	_indigauge.set_consent_choice(IndigaugeTypes.ConsentChoice.UNKNOWN)
+	_indigauge.start_session()
+	_indigauge.show_consent_panel()
+```
+
+`consent_choice` is read-only; always change it through `set_consent_choice(...)`.
+`consent_selected` is emitted for accepted/declined choices, including a restored
+choice during setup. Changing consent alone does not start a session unless a
+previous start is waiting for consent; otherwise call `start_session()`.
+Set `persist_consent_choice = false` before setup for an in-memory choice without
+reading or modifying any existing preference.
+
+The modal has no implicit acceptance or Escape/backdrop dismissal. Hiding it with
+`hide_consent_panel()` does not change consent. It reuses the feedback theme and
+adapts to smaller windows with scrolling and keyboard-focusable buttons. Customize
+its exported title, message, and button labels in `consent_panel.tscn`, and its
+appearance through the scene's theme. The feedback hotkey cannot cover an open
+consent modal.
 
 ---
 
@@ -228,6 +295,9 @@ Set these properties before calling `start(...)`, or configure them in the Inspe
 | `feedback_hotkey_enabled` | `bool` | `true` | Enables the feedback panel hotkey |
 | `feedback_key` | `int` | `KEY_F2` | Key used to toggle the feedback panel |
 | `feedback_canvas_layer` | `int` | `128` | Canvas layer used by the feedback overlay |
+| `consent_modal_enabled` | `bool` | `true` | Automatically shows the modal for unknown consent; does not disable consent enforcement |
+| `persist_consent_choice` | `bool` | `true` | Reads/writes native consent preferences; configure before setup |
+| `consent_canvas_layer` | `int` | `129` | Canvas layer used by the consent overlay |
 
 After `setup(...)` or `start(...)`, advanced batching settings are available on `client.config`:
 
@@ -289,6 +359,7 @@ _indigauge.submit_feedback(message, category, question = "", include_screenshot 
 | `session_started` | `session_token: String` | Emitted when a session is ready |
 | `session_failed` | `http_code: int, error_message: String` | Emitted when session startup fails |
 | `feedback_sent` | `feedback_id: String` | Emitted after feedback is accepted, or immediately in `DEV` mode |
+| `consent_selected` | `choice: IndigaugeTypes.ConsentChoice` | Emitted when an accepted/declined choice is selected or restored |
 
 ---
 
@@ -299,11 +370,24 @@ An importable Godot example lives in `godot-addon/example/`.
 1. Open Godot.
 2. Choose **Import** and select `godot-addon/example/project.godot`.
 3. Press **F5**.
-4. Play the Breakout example with **A/D**, **Left/Right**, **Space**, or the mouse.
+4. Choose **Allow** or **Decline** in the consent modal, then play the Breakout example with **A/D**, **Left/Right**, **Space**, or the mouse.
 5. Watch the Godot Output panel in DEV mode as gameplay logs events such as `game.start`, `ball.launch`, `brick.hit`, `life.lost`, `level.clear`, and `game.over`.
 6. Press **F2** or click **Feedback** to test the in-game feedback panel.
 
 The example uses `Mode.AUTO`, so it runs locally as `DEV` from the editor. Replace `YOUR_PUBLIC_KEY` with your real public key before creating a release export.
+
+### Consent tests
+
+With Godot on your PATH, run from the repository root:
+
+```powershell
+godot --headless --path .\example --editor --import --quit
+godot --headless --path .\example --script res://tests/consent_test.gd
+```
+
+The tests cover modal actions, small-window layout, persistence, opt-out and
+revocation, and live HTTP gating against a local mock server. They use a separate
+temporary preference file and never contact Indigauge.
 
 ---
 
@@ -313,6 +397,7 @@ The example uses `Mode.AUTO`, so it runs locally as `DEV` from the editor. Repla
 - Use a stable `game_name`.
 - Set `game_version` from your release/versioning pipeline.
 - Leave `mode` as `AUTO` unless you need to force `LIVE`, `DEV`, or `DISABLED`.
+- Provide a settings action to change telemetry consent and test acceptance, decline, and revocation.
 - Verify that release exports include the addon files under `addons/indigauge/`.
 - Test the feedback panel with the same input map and UI layers used in production.
 
@@ -324,6 +409,7 @@ The example uses `Mode.AUTO`, so it runs locally as `DEV` from the editor. Repla
 
 - Confirm the build is running in `LIVE` mode. `AUTO` resolves to `DEV` in the editor and debug exports.
 - Confirm `public_key` is set before `start(...)`.
+- Confirm `consent_choice` is `IndigaugeTypes.ConsentChoice.ACCEPTED`.
 - Listen to `session_failed` and log the returned message.
 
 **Events are not sent**
