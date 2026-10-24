@@ -56,6 +56,12 @@ theme_override_constants/separation = 8
 [node name="TopRow" type="HBoxContainer" parent="Center/Card/Scroll/VBox/Header"]
 layout_mode = 2
 
+[node name="Badge" type="Label" parent="Center/Card/Scroll/VBox/Header/TopRow"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"BadgeLabel"
+text = "PLAYER FEEDBACK"
+
 [node name="Spacer" type="Control" parent="Center/Card/Scroll/VBox/Header/TopRow"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -129,6 +135,22 @@ popup/item_11/text = "Art"
 popup/item_11/id = 11
 popup/item_12/text = "Other"
 popup/item_12/id = 12
+
+[node name="QuestionRow" type="VBoxContainer" parent="Center/Card/Scroll/VBox/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="QuestionLabel" type="Label" parent="Center/Card/Scroll/VBox/Form/QuestionRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Question (optional)"
+
+[node name="Question" type="LineEdit" parent="Center/Card/Scroll/VBox/Form/QuestionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "What were you trying to do?"
+clear_button_enabled = true
+minimum_character_width = 1
 
 [node name="MessageRow" type="VBoxContainer" parent="Center/Card/Scroll/VBox/Form"]
 layout_mode = 2
